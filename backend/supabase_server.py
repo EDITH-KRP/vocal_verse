@@ -175,7 +175,9 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         raise HTTPException(status_code=500, detail="Database not available")
     
     try:
-        result = supabase.table('users').select('*').eq('id', user_id).execute()
+        # Use service role to bypass RLS
+        service_supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+        result = service_supabase.table('users').select('*').eq('id', user_id).execute()
         if not result.data:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -274,7 +276,9 @@ async def save_product(product: Product, user_id: str):
         product_data['created_at'] = datetime.now().isoformat()
         product_data['updated_at'] = datetime.now().isoformat()
         
-        result = supabase.table('products').insert(product_data).execute()
+        # Use service role to bypass RLS
+        service_supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+        result = service_supabase.table('products').insert(product_data).execute()
         
         # Log transaction
         await log_transaction(
@@ -295,7 +299,9 @@ async def get_user_products(user_id: str):
         raise HTTPException(status_code=500, detail="Database not available")
     
     try:
-        result = supabase.table('products').select('*').eq('user_id', user_id).execute()
+        # Use service role to bypass RLS
+        service_supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+        result = service_supabase.table('products').select('*').eq('user_id', user_id).execute()
         return result.data
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
@@ -353,7 +359,9 @@ async def log_transaction(user_id: str, product_name: str, transaction_type: str
             'created_at': datetime.now().isoformat()
         }
         
-        supabase.table('inventory_transactions').insert(transaction_data).execute()
+        # Use service role to bypass RLS
+        service_supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+        service_supabase.table('inventory_transactions').insert(transaction_data).execute()
     except Exception as e:
         print(f"Failed to log transaction: {e}")
 
@@ -517,7 +525,9 @@ async def register_user(user_data: UserCreate):
             'is_active': True
         }
         
-        result = supabase.table('users').insert(user_record).execute()
+        # Use service role to bypass RLS for user creation
+        service_supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+        result = service_supabase.table('users').insert(user_record).execute()
         
         if result.data:
             # Create access token
@@ -550,8 +560,9 @@ async def login_user(user_data: UserLogin):
         raise HTTPException(status_code=500, detail="Database not available")
     
     try:
-        # Find user
-        result = supabase.table('users').select('*').eq('email', user_data.email).execute()
+        # Find user using service role to bypass RLS
+        service_supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+        result = service_supabase.table('users').select('*').eq('email', user_data.email).execute()
         
         if not result.data:
             raise HTTPException(status_code=401, detail="Invalid email or password")

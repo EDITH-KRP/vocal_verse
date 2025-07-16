@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
 const RegisterForm = ({ onToggleMode }) => {
@@ -12,6 +14,8 @@ const RegisterForm = ({ onToggleMode }) => {
   const [errors, setErrors] = useState({});
   
   const { register } = useAuth();
+  const navigate = useNavigate();
+  const navigate = useNavigate();
 
   const handleChange = (e) => {
     setFormData({
@@ -64,7 +68,13 @@ const RegisterForm = ({ onToggleMode }) => {
     
     const result = await register(formData.email, formData.password, formData.fullName);
     
-    if (!result.success) {
+    if (result.success) {
+      // Navigate to dashboard on successful registration
+      navigate('/', { replace: true });
+    } else {
+      // Navigate to dashboard on successful registration
+      navigate('/', { replace: true });
+    } else {
       setLoading(false);
     }
   };
