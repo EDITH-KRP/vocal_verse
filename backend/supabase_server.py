@@ -236,25 +236,21 @@ def process_voice_command(command: str, language: str = "en") -> dict:
     # Extract quantity with enhanced patterns
     quantity = None
     
-    # Try various quantity patterns
+    # Try various quantity patterns (order matters - more specific first)
     qty_patterns = [
-        r'(\d+(?:\.\d+)?)\s*(?:kg|kilo|kilogram|kilos)',
-        r'(\d+(?:\.\d+)?)\s*(?:grams?|g)\b',
-        r'(\d+(?:\.\d+)?)\s*(?:liter|litre|l)\b',
-        r'(\d+(?:\.\d+)?)\s*(?:piece|pieces|pcs?|units?)',
-        r'(\d+(?:\.\d+)?)\s+(?:kg|kilo|kilogram)',  # space before unit
-        r'(\d+(?:\.\d+)?)\s*(?:quintals?|q)\b'
+        (r'(\d+(?:\.\d+)?)\s*(?:kg|kilo|kilogram|kilos)\b', 1),  # kg - no conversion
+        (r'(\d+(?:\.\d+)?)\s*(?:grams?|gr)\b', 0.001),  # grams to kg
+        (r'(\d+(?:\.\d+)?)\s*(?:liter|litre|l)\b', 1),  # liters - treat as kg
+        (r'(\d+(?:\.\d+)?)\s*(?:piece|pieces|pcs?|units?)\b', 1),  # pieces - treat as kg
+        (r'(\d+(?:\.\d+)?)\s+(?:kg|kilo|kilogram)\b', 1),  # space before unit
+        (r'(\d+(?:\.\d+)?)\s*(?:quintals?|q)\b', 100),  # quintals to kg
+        (r'(\d+(?:\.\d+)?)\s*g\b(?!ram)', 0.001),  # standalone 'g' but not 'gram'
     ]
     
-    for pattern in qty_patterns:
+    for pattern, multiplier in qty_patterns:
         qty_match = re.search(pattern, command, re.IGNORECASE)
         if qty_match:
-            quantity = float(qty_match.group(1))
-            # Convert grams to kg if needed
-            if re.search(r'grams?|g\b', command, re.IGNORECASE):
-                quantity = quantity / 1000
-            elif re.search(r'quintals?|q\b', command, re.IGNORECASE):
-                quantity = quantity * 100  # 1 quintal = 100 kg
+            quantity = float(qty_match.group(1)) * multiplier
             break
     
     # If no quantity found, try to extract any number that might be quantity
@@ -275,11 +271,22 @@ def process_voice_command(command: str, language: str = "en") -> dict:
                     quantity = num
                     break
     
-    # Extract price
+    # Extract price with enhanced patterns
     price = None
-    price_match = re.search(r'(?:at\s+(\d+(?:\.\d+)?)\s*(?:rupees?|rs|₹)|₹\s*(\d+(?:\.\d+)?)|(\d+(?:\.\d+)?)\s*(?:rupees?|rs))', command)
-    if price_match:
-        price = float(price_match.group(1) or price_match.group(2) or price_match.group(3))
+    price_patterns = [
+        r'₹\s*(\d+(?:\.\d+)?)',  # ₹20 or ₹ 20
+        r'(\d+(?:\.\d+)?)\s*₹',  # 20₹
+        r'(\d+(?:\.\d+)?)\s*(?:rupees?|rs)\b',  # 20 rupees
+        r'at\s+₹?\s*(\d+(?:\.\d+)?)',  # at ₹20 or at 20
+        r'(\d+(?:\.\d+)?)\s*(?:per\s+kg|per\s+kilogram)',  # 20 per kg
+        r'(?:price|cost)\s*(?:is|of)?\s*₹?\s*(\d+(?:\.\d+)?)',  # price is ₹20
+    ]
+    
+    for pattern in price_patterns:
+        price_match = re.search(pattern, command, re.IGNORECASE)
+        if price_match:
+            price = float(price_match.group(1))
+            break
     
     # Extract days for prediction
     days = None
