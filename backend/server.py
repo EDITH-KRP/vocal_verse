@@ -16,6 +16,15 @@ import pandas as pd
 from scipy import stats
 import warnings
 warnings.filterwarnings('ignore')
+# Translation support with fallback
+try:
+    from googletrans import Translator
+    import langdetect
+    from langdetect import detect
+    TRANSLATION_ENABLED = True
+except ImportError:
+    TRANSLATION_ENABLED = False
+    print("Translation libraries not available. Using fallback mode.")
 
 # Load environment variables
 try:
@@ -64,6 +73,96 @@ else:
     model = None
     print("Gemini API key not found, using fallback parsing")
 
+# Initialize Google Translator
+if TRANSLATION_ENABLED:
+    translator = Translator()
+
+# Language detection and translation helpers
+def detect_language(text: str) -> str:
+    """Detect the language of the input text"""
+    if not TRANSLATION_ENABLED:
+        return 'en'
+    try:
+        return detect(text)
+    except:
+        return 'en'  # Default to English if detection fails
+
+def translate_to_english(text: str) -> str:
+    """Translate text to English if it's in another language"""
+    if not TRANSLATION_ENABLED:
+        return text
+    try:
+        # Detect language
+        detected_lang = detect_language(text)
+        
+        # If already English, return as is
+        if detected_lang == 'en':
+            return text
+        
+        # Translate to English
+        result = translator.translate(text, dest='en')
+        return result.text
+    except Exception as e:
+        print(f"Translation error: {e}")
+        return text  # Return original if translation fails
+
+# Enhanced multi-language product mapping
+def get_multilingual_product_mapping():
+    """Extended product mapping with multiple languages"""
+    return {
+        # English and common variations
+        'apple': ['apple', 'apples', 'seb', 'सेब'],
+        'banana': ['banana', 'bananas', 'kela', 'केला'],
+        'orange': ['orange', 'oranges', 'santra', 'संतरा', 'narangi', 'नारंगी'],
+        'mango': ['mango', 'mangoes', 'aam', 'आम'],
+        'grapes': ['grapes', 'grape', 'angur', 'अंगूर'],
+        'watermelon': ['watermelon', 'water melon', 'tarbooj', 'तरबूज'],
+        'lemon': ['lemon', 'lemons', 'lime', 'nimbu', 'नीम्बू'],
+        
+        # Vegetables with Hindi/Regional names
+        'tomato': ['tomato', 'tomatoes', 'tamatar', 'टमाटर'],
+        'onion': ['onion', 'onions', 'pyaz', 'प्याज'],
+        'potato': ['potato', 'potatoes', 'aloo', 'आलू'],
+        'carrot': ['carrot', 'carrots', 'gajar', 'गाजर'],
+        'cabbage': ['cabbage', 'patta gobi', 'पत्ता गोभी'],
+        'cauliflower': ['cauliflower', 'gobi', 'गोभी', 'phool gobi', 'फूल गोभी'],
+        'spinach': ['spinach', 'palak', 'पालक'],
+        'brinjal': ['brinjal', 'eggplant', 'baingan', 'बैंगन'],
+        'okra': ['okra', 'bhindi', 'भिंडी', 'lady finger'],
+        'beans': ['beans', 'green beans', 'sem', 'सेम'],
+        'peas': ['peas', 'green peas', 'matar', 'मटर'],
+        'cucumber': ['cucumber', 'kheera', 'खीरा'],
+        'bitter gourd': ['bitter gourd', 'karela', 'करेला'],
+        'bottle gourd': ['bottle gourd', 'lauki', 'लौकी'],
+        'radish': ['radish', 'mooli', 'मूली'],
+        'beetroot': ['beetroot', 'beet', 'chukandar', 'चुकंदर'],
+        'turnip': ['turnip', 'shalgam', 'शलगम'],
+        'pumpkin': ['pumpkin', 'kaddu', 'कद्दू'],
+        'corn': ['corn', 'maize', 'bhutta', 'भुट्टा'],
+        'garlic': ['garlic', 'lahsun', 'लहसुन'],
+        'ginger': ['ginger', 'adrak', 'अदरक'],
+        
+        # Staples with regional names
+        'rice': ['rice', 'basmati', 'jasmine rice', 'chawal', 'चावल'],
+        'wheat': ['wheat', 'atta', 'gehun', 'गेहूं'],
+        'dal': ['dal', 'lentils', 'pulses', 'दाल'],
+        'oil': ['oil', 'cooking oil', 'mustard oil', 'sunflower oil', 'tel', 'तेल'],
+        'salt': ['salt', 'namak', 'नमक'],
+        'sugar': ['sugar', 'cheeni', 'चीनी'],
+        
+        # Dairy & Proteins
+        'milk': ['milk', 'doodh', 'दूध'],
+        'eggs': ['eggs', 'egg', 'ande', 'अंडे'],
+        'chicken': ['chicken', 'murgi', 'मुर्गी'],
+        'mutton': ['mutton', 'goat meat', 'bakra', 'बकरा'],
+        'fish': ['fish', 'machli', 'मछली'],
+        
+        # Others
+        'tea': ['tea', 'chai', 'चाय'],
+        'coffee': ['coffee', 'कॉफी'],
+        'bread': ['bread', 'pav', 'roti', 'रोटी', 'ब्रेड']
+    }
+
 # Test MongoDB connection at startup
 async def test_mongodb_connection():
     global client, db
@@ -107,22 +206,33 @@ class AnalyticsData(BaseModel):
     price: Optional[float] = None
     timestamp: Optional[datetime] = None
 
-# Enhanced AI voice processing function
+# Enhanced AI voice processing function with multi-language support
 def process_voice_command(command: str, language: str = "en") -> dict:
     """
-    Enhanced AI processing for voice commands with better accuracy
+    Enhanced AI processing for voice commands with multi-language support
     Handles commands like "Orange one KG ₹50" or "Add tomato 2 kg at 30 rupees"
+    Supports multiple languages with automatic translation to English
     """
     original_command = command
+    original_language = detect_language(command)
+    
+    # Translate to English if needed
+    if original_language != 'en' and TRANSLATION_ENABLED:
+        translated_command = translate_to_english(command)
+        if translated_command != command:
+            print(f"Translated from {original_language}: '{original_command}' -> '{translated_command}'")
+            command = translated_command
+    
     command = command.lower().strip()
     
-    # Enhanced pattern matching for actions
+    # Enhanced pattern matching for actions with more CRUD operations
     action_patterns = {
-        'add': r'(?:add|create|insert|new|store|put|include)\b',
-        'update': r'(?:update|change|modify|edit|alter|adjust)\b',
-        'remove': r'(?:remove|delete|del|eliminate|take out)\b',
-        'list': r'(?:list|show|display|get all|show all|view all)\b',
-        'search': r'(?:search|find|get|show|look for|where is)\b'
+        'add': r'(?:add|create|insert|new|store|put|include|daal|daalna|जोड़)\b',
+        'update': r'(?:update|change|modify|edit|alter|adjust|badal|बदल|price.*to|set.*price)\b',
+        'remove': r'(?:remove|delete|del|eliminate|take out|hata|हटा|nikaal|निकाल)\b',
+        'list': r'(?:list|show|display|get all|show all|view all|sabhi|सभी|dikha|दिखा)\b',
+        'search': r'(?:search|find|get|show|look for|where is|dhund|ढूंढ|kaha|कहा)\b',
+        'stock': r'(?:stock|inventory|quantity|kitna|कितना|total|balance)\b'
     }
     
     # Detect action - if no explicit action word, assume "add" for product + quantity + price pattern
@@ -154,60 +264,8 @@ def process_voice_command(command: str, language: str = "en") -> dict:
     quantity = None
     price = None
     
-    # Expanded product database with common variations
-    products_db = {
-        # Fruits
-        'apple': ['apple', 'apples'],
-        'banana': ['banana', 'bananas'],
-        'orange': ['orange', 'oranges'],
-        'mango': ['mango', 'mangoes'],
-        'grapes': ['grapes', 'grape'],
-        'watermelon': ['watermelon', 'water melon'],
-        'lemon': ['lemon', 'lemons', 'lime'],
-        
-        # Vegetables
-        'tomato': ['tomato', 'tomatoes'],
-        'onion': ['onion', 'onions'],
-        'potato': ['potato', 'potatoes', 'aloo'],
-        'carrot': ['carrot', 'carrots'],
-        'cabbage': ['cabbage'],
-        'cauliflower': ['cauliflower', 'gobi'],
-        'spinach': ['spinach', 'palak'],
-        'brinjal': ['brinjal', 'eggplant', 'baingan'],
-        'okra': ['okra', 'bhindi', 'lady finger'],
-        'beans': ['beans', 'green beans'],
-        'peas': ['peas', 'green peas'],
-        'cucumber': ['cucumber'],
-        'bitter gourd': ['bitter gourd', 'karela'],
-        'bottle gourd': ['bottle gourd', 'lauki'],
-        'radish': ['radish', 'mooli'],
-        'beetroot': ['beetroot', 'beet'],
-        'turnip': ['turnip'],
-        'pumpkin': ['pumpkin', 'kaddu'],
-        'corn': ['corn', 'maize'],
-        'garlic': ['garlic', 'lahsun'],
-        'ginger': ['ginger', 'adrak'],
-        
-        # Staples
-        'rice': ['rice', 'basmati', 'jasmine rice'],
-        'wheat': ['wheat', 'atta'],
-        'dal': ['dal', 'lentils', 'pulses'],
-        'oil': ['oil', 'cooking oil', 'mustard oil', 'sunflower oil'],
-        'salt': ['salt', 'namak'],
-        'sugar': ['sugar', 'cheeni'],
-        
-        # Dairy & Proteins
-        'milk': ['milk', 'doodh'],
-        'eggs': ['eggs', 'egg', 'ande'],
-        'chicken': ['chicken', 'murgi'],
-        'mutton': ['mutton', 'goat meat'],
-        'fish': ['fish', 'machli'],
-        
-        # Others
-        'tea': ['tea', 'chai'],
-        'coffee': ['coffee'],
-        'bread': ['bread', 'pav', 'roti']
-    }
+    # Use the enhanced multilingual product mapping
+    products_db = get_multilingual_product_mapping()
     
     # Find product name using enhanced matching
     for standard_name, variations in products_db.items():
@@ -524,6 +582,73 @@ async def process_voice(command: VoiceCommand):
                 return {
                     "success": False,
                     "message": f"Product '{result['product_name']}' not found",
+                    "parsed_command": result
+                }
+        
+        elif result["action"] == "update" and result["product_name"]:
+            # Handle update commands like "Update tomato price to ₹25"
+            existing_product = await find_product(result["product_name"])
+            if existing_product:
+                updates = {}
+                if result["price"]:
+                    updates["price_per_kg"] = result["price"]
+                if result["quantity"]:
+                    updates["quantity"] = result["quantity"]
+                
+                if updates:
+                    updated = await update_product(result["product_name"], updates)
+                    if updated:
+                        return {
+                            "success": True,
+                            "message": f"Updated {result['product_name']}: {', '.join([f'{k}={v}' for k, v in updates.items()])}",
+                            "product": updates,
+                            "parsed_command": result,
+                            "action_taken": "updated"
+                        }
+                else:
+                    return {
+                        "success": False,
+                        "message": f"No update information provided for {result['product_name']}",
+                        "parsed_command": result
+                    }
+            else:
+                return {
+                    "success": False,
+                    "message": f"Product '{result['product_name']}' not found for update",
+                    "parsed_command": result
+                }
+        
+        elif result["action"] == "remove" and result["product_name"]:
+            # Handle delete commands
+            deleted = await delete_product(result["product_name"])
+            if deleted:
+                return {
+                    "success": True,
+                    "message": f"Deleted product: {result['product_name']}",
+                    "parsed_command": result,
+                    "action_taken": "deleted"
+                }
+            else:
+                return {
+                    "success": False,
+                    "message": f"Product '{result['product_name']}' not found for deletion",
+                    "parsed_command": result
+                }
+        
+        elif result["action"] == "stock" and result["product_name"]:
+            # Handle stock/inventory queries
+            product = await find_product(result["product_name"])
+            if product:
+                return {
+                    "success": True,
+                    "message": f"Stock for {product['name']}: {product['quantity']} kg at ₹{product['price_per_kg']} per kg",
+                    "product": product,
+                    "parsed_command": result
+                }
+            else:
+                return {
+                    "success": False,
+                    "message": f"Product '{result['product_name']}' not found in stock",
                     "parsed_command": result
                 }
         

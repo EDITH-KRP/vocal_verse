@@ -4,6 +4,7 @@ import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import AuthPage from './components/Auth/AuthPage';
 import Dashboard from './components/Analytics/Dashboard';
+import VoiceDebugger from './VoiceDebugger';
 import axios from 'axios';
 import './App.css';
 
@@ -79,16 +80,25 @@ const VoiceInventoryApp = () => {
     setLoading(true);
     setError('');
     
-    console.log('Processing voice command:', command);
+    console.log('=== PROCESSING VOICE COMMAND ===');
+    console.log('Command:', command);
+    console.log('Language:', language);
     console.log('Backend URL:', BACKEND_URL);
     
+    // Additional debug info
+    const payload = {
+      command: command,
+      language: language
+    };
+    console.log('Payload:', payload);
+    
     try {
-      const response = await axios.post(`${BACKEND_URL}/voice-command`, {
-        command: command,
-        language: language
-      });
+      console.log('Making request to:', `${BACKEND_URL}/voice-command`);
+      
+      const response = await axios.post(`${BACKEND_URL}/voice-command`, payload);
       
       console.log('Response status:', response.status);
+      console.log('Response headers:', response.headers);
       console.log('Response data:', response.data);
       
       setResponse(JSON.stringify(response.data, null, 2));
@@ -96,10 +106,21 @@ const VoiceInventoryApp = () => {
       
       // Speak the response
       speakResponse(response.data);
+      
+      console.log('Voice command processed successfully');
     } catch (err) {
-      console.error('Voice command error:', err);
+      console.error('=== VOICE COMMAND ERROR ===');
+      console.error('Error object:', err);
+      console.error('Error message:', err.message);
+      console.error('Error response:', err.response);
+      console.error('Error status:', err.response?.status);
+      console.error('Error data:', err.response?.data);
+      
       const errorMessage = err.response?.data?.detail || err.message;
       setError('Failed to process command: ' + errorMessage);
+      
+      // Set error response for display
+      setResponse(`Error: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -158,8 +179,11 @@ const VoiceInventoryApp = () => {
       
       recognitionRef.current.onresult = (event) => {
         const transcript = event.results[0][0].transcript;
-        console.log('Voice transcript:', transcript);
-        console.log('Voice confidence:', event.results[0][0].confidence);
+        console.log('=== VOICE RECOGNITION RESULT ===');
+        console.log('Raw transcript:', transcript);
+        console.log('Confidence:', event.results[0][0].confidence);
+        console.log('Event results:', event.results);
+        
         setTranscript(transcript);
         
         // Process the voice command
@@ -255,6 +279,9 @@ const VoiceInventoryApp = () => {
       <main className="main-content">
         {activeTab === 'inventory' && (
           <div className="inventory-tab">
+            {/* Voice Debugger */}
+            <VoiceDebugger />
+            
             {/* Language Selection */}
             <div className="language-selector">
               <label>Language: </label>

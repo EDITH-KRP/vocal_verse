@@ -233,14 +233,47 @@ def process_voice_command(command: str, language: str = "en") -> dict:
         if add_match:
             product_name = add_match.group(1)
     
-    # Extract quantity
+    # Extract quantity with enhanced patterns
     quantity = None
-    qty_match = re.search(r'(\d+(?:\.\d+)?)\s*(?:kg|kilo|kilogram|grams?|g)', command)
-    if qty_match:
-        quantity = float(qty_match.group(1))
-        # Convert grams to kg if needed
-        if 'gram' in command or ' g ' in command:
-            quantity = quantity / 1000
+    
+    # Try various quantity patterns
+    qty_patterns = [
+        r'(\d+(?:\.\d+)?)\s*(?:kg|kilo|kilogram|kilos)',
+        r'(\d+(?:\.\d+)?)\s*(?:grams?|g)\b',
+        r'(\d+(?:\.\d+)?)\s*(?:liter|litre|l)\b',
+        r'(\d+(?:\.\d+)?)\s*(?:piece|pieces|pcs?|units?)',
+        r'(\d+(?:\.\d+)?)\s+(?:kg|kilo|kilogram)',  # space before unit
+        r'(\d+(?:\.\d+)?)\s*(?:quintals?|q)\b'
+    ]
+    
+    for pattern in qty_patterns:
+        qty_match = re.search(pattern, command, re.IGNORECASE)
+        if qty_match:
+            quantity = float(qty_match.group(1))
+            # Convert grams to kg if needed
+            if re.search(r'grams?|g\b', command, re.IGNORECASE):
+                quantity = quantity / 1000
+            elif re.search(r'quintals?|q\b', command, re.IGNORECASE):
+                quantity = quantity * 100  # 1 quintal = 100 kg
+            break
+    
+    # If no quantity found, try to extract any number that might be quantity
+    if not quantity:
+        # Look for patterns like "2 tomato" or "five kg"
+        number_match = re.search(r'(\d+(?:\.\d+)?)\s*(?:' + '|'.join(products) + r')', command)
+        if number_match:
+            quantity = float(number_match.group(1))
+        else:
+            # Try word numbers (one, two, etc.)
+            word_numbers = {
+                'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+                'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
+                'half': 0.5, 'quarter': 0.25
+            }
+            for word, num in word_numbers.items():
+                if word in command:
+                    quantity = num
+                    break
     
     # Extract price
     price = None
@@ -621,20 +654,36 @@ async def process_voice(command: VoiceCommand, current_user: dict = Depends(get_
         result = process_voice_command(command.command, command.language)
         user_id = current_user['id']
         
-        if result["action"] == "add" and result["product_name"] and result["quantity"] and result["price"]:
-            # Add product
-            product = Product(
-                name=result["product_name"],
-                quantity=result["quantity"],
-                price_per_kg=result["price"]
-            )
-            saved_product = await save_product(product, user_id)
-            return {
-                "success": True,
-                "message": f"Added {result['quantity']} kg of {result['product_name']} at ₹{result['price']} per kg",
-                "product": saved_product,
-                "parsed_command": result
-            }
+        if result["action"] == "add" and result["product_name"]:
+            # Check if we have all required information
+            if result["quantity"] and result["price"]:
+                # Add product
+                product = Product(
+                    name=result["product_name"],
+                    quantity=result["quantity"],
+                    price_per_kg=result["price"]
+                )
+                saved_product = await save_product(product, user_id)
+                return {
+                    "success": True,
+                    "message": f"Added {result['quantity']} kg of {result['product_name']} at ₹{result['price']} per kg",
+                    "product": saved_product,
+                    "parsed_command": result
+                }
+            else:
+                # Handle missing information with helpful message
+                missing_info = []
+                if not result["quantity"]:
+                    missing_info.append("quantity")
+                if not result["price"]:
+                    missing_info.append("price")
+                
+                return {
+                    "success": False,
+                    "message": f"To add {result['product_name']}, please specify the {' and '.join(missing_info)}. Try: 'Add {result['product_name']} 2 kg at ₹20 per kg'",
+                    "parsed_command": result,
+                    "missing_info": missing_info
+                }
         
         elif result["action"] == "list":
             products = await get_user_products(user_id)

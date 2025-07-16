@@ -61,8 +61,8 @@ echo Starting services...
 echo.
 
 REM Start backend in a new window
-echo Starting Backend Server (Port 8000)...
-start "Vocal Verse Backend" cmd /k "cd /d p:\vocal_verse\backend && venv\Scripts\activate.bat && python server.py"
+echo Starting Backend Server with Supabase Authentication (Port 8000)...
+start "Vocal Verse Backend" cmd /k "cd /d p:\vocal_verse\backend && venv\Scripts\activate.bat && python supabase_server.py"
 
 REM Wait a moment for backend to start
 timeout /t 3 /nobreak >nul
