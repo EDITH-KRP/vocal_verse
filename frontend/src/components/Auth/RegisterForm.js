@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
 const RegisterForm = ({ onToggleMode }) => {
@@ -14,7 +13,6 @@ const RegisterForm = ({ onToggleMode }) => {
   const [errors, setErrors] = useState({});
   
   const { register } = useAuth();
-  const navigate = useNavigate();
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -72,9 +70,6 @@ const RegisterForm = ({ onToggleMode }) => {
       // Navigate to dashboard on successful registration
       navigate('/', { replace: true });
     } else {
-      // Navigate to dashboard on successful registration
-      navigate('/', { replace: true });
-    } else {
       setLoading(false);
     }
   };
@@ -82,64 +77,76 @@ const RegisterForm = ({ onToggleMode }) => {
   return (
     <div className="auth-form">
       <h2>Create Your Account</h2>
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} className={loading ? 'form-loading' : ''}>
         <div className="form-group">
           <label htmlFor="fullName">Full Name</label>
-          <input
-            type="text"
-            id="fullName"
-            name="fullName"
-            value={formData.fullName}
-            onChange={handleChange}
-            required
-            placeholder="Enter your full name"
-          />
+          <div className="input-wrapper">
+            <input
+              type="text"
+              id="fullName"
+              name="fullName"
+              value={formData.fullName}
+              onChange={handleChange}
+              required
+              placeholder="Enter your full name"
+            />
+            <div className="input-focus-border"></div>
+          </div>
           {errors.fullName && <span className="error-text">{errors.fullName}</span>}
         </div>
         
         <div className="form-group">
           <label htmlFor="email">Email</label>
-          <input
-            type="email"
-            id="email"
-            name="email"
-            value={formData.email}
-            onChange={handleChange}
-            required
-            placeholder="Enter your email"
-          />
+          <div className="input-wrapper">
+            <input
+              type="email"
+              id="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              required
+              placeholder="Enter your email"
+            />
+            <div className="input-focus-border"></div>
+          </div>
           {errors.email && <span className="error-text">{errors.email}</span>}
         </div>
         
         <div className="form-group">
           <label htmlFor="password">Password</label>
-          <input
-            type="password"
-            id="password"
-            name="password"
-            value={formData.password}
-            onChange={handleChange}
-            required
-            placeholder="Enter your password"
-          />
+          <div className="input-wrapper">
+            <input
+              type="password"
+              id="password"
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
+              required
+              placeholder="Enter your password"
+            />
+            <div className="input-focus-border"></div>
+          </div>
           {errors.password && <span className="error-text">{errors.password}</span>}
         </div>
         
         <div className="form-group">
           <label htmlFor="confirmPassword">Confirm Password</label>
-          <input
-            type="password"
-            id="confirmPassword"
-            name="confirmPassword"
-            value={formData.confirmPassword}
-            onChange={handleChange}
-            required
-            placeholder="Confirm your password"
-          />
+          <div className="input-wrapper">
+            <input
+              type="password"
+              id="confirmPassword"
+              name="confirmPassword"
+              value={formData.confirmPassword}
+              onChange={handleChange}
+              required
+              placeholder="Confirm your password"
+            />
+            <div className="input-focus-border"></div>
+          </div>
           {errors.confirmPassword && <span className="error-text">{errors.confirmPassword}</span>}
         </div>
         
-        <button type="submit" disabled={loading} className="auth-button">
+        <button type="submit" disabled={loading} className={`auth-button ${loading ? 'loading' : ''}`}>
           {loading ? 'Creating Account...' : 'Create Account'}
         </button>
       </form>

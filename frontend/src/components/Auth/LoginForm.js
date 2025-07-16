@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
 const LoginForm = ({ onToggleMode }) => {
@@ -11,7 +10,6 @@ const LoginForm = ({ onToggleMode }) => {
   const [loading, setLoading] = useState(false);
   
   const { login } = useAuth();
-  const navigate = useNavigate();
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -28,9 +26,6 @@ const LoginForm = ({ onToggleMode }) => {
     const result = await login(formData.email, formData.password);
     
     if (result.success) {
-      // Navigate to dashboard on successful login
-      navigate('/', { replace: true });
-    } else {
       // Navigate to dashboard on successful login
       navigate('/', { replace: true });
     } else {

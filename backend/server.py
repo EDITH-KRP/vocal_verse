@@ -107,75 +107,250 @@ class AnalyticsData(BaseModel):
     price: Optional[float] = None
     timestamp: Optional[datetime] = None
 
-# Basic voice processing function
+# Enhanced AI voice processing function
 def process_voice_command(command: str, language: str = "en") -> dict:
     """
-    Process voice command and extract action and product information
+    Enhanced AI processing for voice commands with better accuracy
+    Handles commands like "Orange one KG ₹50" or "Add tomato 2 kg at 30 rupees"
     """
+    original_command = command
     command = command.lower().strip()
     
-    # Simple pattern matching for basic commands
-    patterns = {
-        'add': r'add|create|insert|new',
-        'update': r'update|change|modify|edit',
-        'remove': r'remove|delete|del',
-        'list': r'list|show|display|get all',
-        'search': r'search|find|get|show'
+    # Enhanced pattern matching for actions
+    action_patterns = {
+        'add': r'(?:add|create|insert|new|store|put|include)\b',
+        'update': r'(?:update|change|modify|edit|alter|adjust)\b',
+        'remove': r'(?:remove|delete|del|eliminate|take out)\b',
+        'list': r'(?:list|show|display|get all|show all|view all)\b',
+        'search': r'(?:search|find|get|show|look for|where is)\b'
     }
     
+    # Detect action - if no explicit action word, assume "add" for product + quantity + price pattern
     action = None
-    for act, pattern in patterns.items():
+    for act, pattern in action_patterns.items():
         if re.search(pattern, command):
             action = act
             break
     
+    # If no action detected but we have product + quantity + price pattern, assume "add"
     if not action:
-        return {"action": "unknown", "message": "Command not recognized"}
+        # Check if command has product + quantity + price structure (including word numbers)
+        has_product_pattern = any(product in command for products_list in [
+            ['apple', 'banana', 'orange', 'mango', 'grapes', 'watermelon', 'lemon'],
+            ['tomato', 'onion', 'potato', 'carrot', 'cabbage', 'cauliflower', 'spinach'],
+            ['rice', 'wheat', 'dal', 'oil', 'salt', 'sugar', 'milk', 'eggs', 'chicken']
+        ] for product in products_list)
+        
+        has_quantity_pattern = re.search(r'(?:\d+(?:\.\d+)?|one|two|three|four|five|six|seven|eight|nine|ten|half|quarter).*(?:kg|kilo|kilogram)', command)
+        has_price_pattern = re.search(r'(?:₹|rupees?|rs|\d+.*rupees)', command)
+        
+        if has_product_pattern and (has_quantity_pattern or has_price_pattern):
+            action = "add"
+        else:
+            return {"action": "unknown", "message": "Command not recognized. Try saying 'Add [product] [quantity] kg at [price] rupees'"}
     
-    # Extract product name (simplified)
+    # Enhanced product extraction
     product_name = None
     quantity = None
     price = None
     
-    # Look for common product names (expanded list)
-    products = [
-        'tomato', 'onion', 'potato', 'rice', 'milk', 'sugar', 'banana', 'apple', 'carrot',
-        'wheat', 'dal', 'oil', 'salt', 'tea', 'coffee', 'bread', 'eggs', 'chicken', 'mutton',
-        'fish', 'spinach', 'cabbage', 'cauliflower', 'beans', 'peas', 'corn', 'garlic',
-        'ginger', 'lemon', 'orange', 'mango', 'grapes', 'watermelon', 'cucumber', 'bitter gourd',
-        'bottle gourd', 'brinjal', 'okra', 'radish', 'beetroot', 'turnip', 'pumpkin'
-    ]
+    # Expanded product database with common variations
+    products_db = {
+        # Fruits
+        'apple': ['apple', 'apples'],
+        'banana': ['banana', 'bananas'],
+        'orange': ['orange', 'oranges'],
+        'mango': ['mango', 'mangoes'],
+        'grapes': ['grapes', 'grape'],
+        'watermelon': ['watermelon', 'water melon'],
+        'lemon': ['lemon', 'lemons', 'lime'],
+        
+        # Vegetables
+        'tomato': ['tomato', 'tomatoes'],
+        'onion': ['onion', 'onions'],
+        'potato': ['potato', 'potatoes', 'aloo'],
+        'carrot': ['carrot', 'carrots'],
+        'cabbage': ['cabbage'],
+        'cauliflower': ['cauliflower', 'gobi'],
+        'spinach': ['spinach', 'palak'],
+        'brinjal': ['brinjal', 'eggplant', 'baingan'],
+        'okra': ['okra', 'bhindi', 'lady finger'],
+        'beans': ['beans', 'green beans'],
+        'peas': ['peas', 'green peas'],
+        'cucumber': ['cucumber'],
+        'bitter gourd': ['bitter gourd', 'karela'],
+        'bottle gourd': ['bottle gourd', 'lauki'],
+        'radish': ['radish', 'mooli'],
+        'beetroot': ['beetroot', 'beet'],
+        'turnip': ['turnip'],
+        'pumpkin': ['pumpkin', 'kaddu'],
+        'corn': ['corn', 'maize'],
+        'garlic': ['garlic', 'lahsun'],
+        'ginger': ['ginger', 'adrak'],
+        
+        # Staples
+        'rice': ['rice', 'basmati', 'jasmine rice'],
+        'wheat': ['wheat', 'atta'],
+        'dal': ['dal', 'lentils', 'pulses'],
+        'oil': ['oil', 'cooking oil', 'mustard oil', 'sunflower oil'],
+        'salt': ['salt', 'namak'],
+        'sugar': ['sugar', 'cheeni'],
+        
+        # Dairy & Proteins
+        'milk': ['milk', 'doodh'],
+        'eggs': ['eggs', 'egg', 'ande'],
+        'chicken': ['chicken', 'murgi'],
+        'mutton': ['mutton', 'goat meat'],
+        'fish': ['fish', 'machli'],
+        
+        # Others
+        'tea': ['tea', 'chai'],
+        'coffee': ['coffee'],
+        'bread': ['bread', 'pav', 'roti']
+    }
     
-    # Try to find product name in command
-    for product in products:
-        if product in command:
-            product_name = product
+    # Find product name using enhanced matching
+    for standard_name, variations in products_db.items():
+        for variation in variations:
+            if variation in command:
+                product_name = standard_name
+                break
+        if product_name:
             break
     
-    # If no predefined product found, try to extract from command structure
+    # If no predefined product found, extract first word that could be a product
     if not product_name:
-        # Look for "add [product_name] [quantity]" pattern
-        add_match = re.search(r'add\s+(\w+)\s+\d+', command)
-        if add_match:
-            product_name = add_match.group(1)
+        # Remove action words and common words
+        cleaned_command = re.sub(r'\b(?:add|create|insert|new|at|kg|kilo|kilogram|rupees?|rs|₹|one|two|three|four|five|six|seven|eight|nine|ten)\b', '', command)
+        words = cleaned_command.split()
+        if words:
+            # Take the first meaningful word as product name
+            for word in words:
+                if len(word) > 2 and word.isalpha():
+                    product_name = word
+                    break
     
-    # Extract quantity
-    qty_match = re.search(r'(\d+(?:\.\d+)?)\s*(?:kg|kilo|kilogram)', command)
-    if qty_match:
-        quantity = float(qty_match.group(1))
+    # Enhanced quantity extraction
+    # Handle written numbers and digits
+    number_words = {
+        'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+        'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
+        'half': 0.5, 'quarter': 0.25
+    }
     
-    # Extract price (look for patterns like "at 35 rupees" or "₹35")
-    price_match = re.search(r'(?:at\s+(\d+(?:\.\d+)?)\s*(?:rupees?|rs|₹)|₹\s*(\d+(?:\.\d+)?)|(\d+(?:\.\d+)?)\s*(?:rupees?|rs))', command)
-    if price_match:
-        price = float(price_match.group(1) or price_match.group(2) or price_match.group(3))
+    # First try to find word numbers + kg pattern
+    for word, num in number_words.items():
+        word_patterns = [
+            rf'{word}\s*(?:kg|kilo|kilogram)',
+            rf'{word}\s+(?:kg|kilo|kilogram)',
+        ]
+        for pattern in word_patterns:
+            if re.search(pattern, command):
+                quantity = num
+                break
+        if quantity is not None:
+            break
+    
+    # If no word number found, try digit + kg pattern
+    if quantity is None:
+        qty_patterns = [
+            r'(\d+(?:\.\d+)?)\s*(?:kg|kilo|kilogram|kilos)',
+            r'(\d+(?:\.\d+)?)\s*kg',
+            r'(\d+)\s*(?:kg|kilo|kilogram)',
+        ]
+        
+        for pattern in qty_patterns:
+            qty_match = re.search(pattern, command)
+            if qty_match:
+                quantity = float(qty_match.group(1))
+                break
+    
+    # Enhanced price extraction with multiple patterns including word numbers
+    price_number_words = {
+        'ten': 10, 'twenty': 20, 'thirty': 30, 'forty': 40, 'fifty': 50,
+        'sixty': 60, 'seventy': 70, 'eighty': 80, 'ninety': 90, 'hundred': 100
+    }
+    
+    # First try word numbers for price
+    for word, num in price_number_words.items():
+        word_price_patterns = [
+            rf'{word}\s*(?:rupees?|rs)',
+            rf'at\s+{word}\s*(?:rupees?|rs)?',
+            rf'₹\s*{word}',
+        ]
+        for pattern in word_price_patterns:
+            if re.search(pattern, command):
+                price = num
+                break
+        if price is not None:
+            break
+    
+    # If no word price found, try digit patterns
+    if price is None:
+        price_patterns = [
+            r'₹\s*(\d+(?:\.\d+)?)',  # ₹50
+            r'(\d+(?:\.\d+)?)\s*₹',  # 50₹
+            r'(?:at|for|price|cost)\s+₹?\s*(\d+(?:\.\d+)?)',  # at ₹50, for 50
+            r'(?:at|for|price|cost)\s+(\d+(?:\.\d+)?)\s*(?:rupees?|rs)',  # at 50 rupees
+            r'(\d+(?:\.\d+)?)\s*(?:rupees?|rs)',  # 50 rupees
+            r'(?:price|cost|rate)\s+(?:is\s+)?₹?\s*(\d+(?:\.\d+)?)',  # price is 50
+        ]
+        
+        for pattern in price_patterns:
+            price_match = re.search(pattern, command)
+            if price_match:
+                price = float(price_match.group(1))
+                break
+    
+    # Smart defaults and validation
+    if action == "add" and product_name:
+        # If quantity not specified, default to 1 kg
+        if quantity is None:
+            quantity = 1.0
+        
+        # If price not specified, ask for it
+        if price is None:
+            return {
+                "action": "incomplete",
+                "message": f"Please specify the price for {product_name}. Say something like '{product_name} {quantity} kg at 50 rupees'",
+                "product_name": product_name,
+                "quantity": quantity
+            }
+    
+    # Generate response message
+    if action == "add" and product_name and quantity and price:
+        message = f"Added {product_name} - {quantity} kg at ₹{price} per kg"
+    elif action == "list":
+        message = "Showing all products"
+    elif action == "search" and product_name:
+        message = f"Searching for {product_name}"
+    else:
+        message = "Command processed"
     
     return {
         "action": action,
         "product_name": product_name,
         "quantity": quantity,
         "price": price,
-        "raw_command": command
+        "raw_command": original_command,
+        "message": message,
+        "confidence": calculate_confidence(product_name, quantity, price, action)
     }
+
+def calculate_confidence(product_name, quantity, price, action):
+    """Calculate confidence score for the extracted information"""
+    confidence = 0.0
+    
+    if action:
+        confidence += 0.3
+    if product_name:
+        confidence += 0.3
+    if quantity:
+        confidence += 0.2
+    if price:
+        confidence += 0.2
+    
+    return min(confidence, 1.0)
 
 # Database operations
 async def save_product(product: Product):
@@ -276,24 +451,56 @@ async def health_check():
 
 @app.post("/voice-command")
 async def process_voice(command: VoiceCommand):
-    """Process voice command"""
+    """Enhanced voice command processing with better AI accuracy"""
     try:
         result = process_voice_command(command.command, command.language)
         
-        if result["action"] == "add" and result["product_name"] and result["quantity"] and result["price"]:
-            # Add product
-            product = Product(
-                name=result["product_name"],
-                quantity=result["quantity"],
-                price_per_kg=result["price"]
-            )
-            saved_product = await save_product(product)
+        # Handle incomplete commands (missing price)
+        if result["action"] == "incomplete":
             return {
-                "success": True,
-                "message": f"Added {result['quantity']} kg of {result['product_name']} at ₹{result['price']} per kg",
-                "product": saved_product,
-                "parsed_command": result
+                "success": False,
+                "message": result["message"],
+                "parsed_command": result,
+                "confidence": result.get("confidence", 0.5)
             }
+        
+        # Handle add command with all required information
+        if result["action"] == "add" and result["product_name"] and result["quantity"] and result["price"]:
+            # Check if product already exists and update or create new
+            existing_product = await find_product(result["product_name"])
+            
+            if existing_product:
+                # Update existing product
+                updates = {
+                    "quantity": existing_product["quantity"] + result["quantity"],
+                    "price_per_kg": result["price"]  # Update to new price
+                }
+                updated = await update_product(result["product_name"], updates)
+                return {
+                    "success": True,
+                    "message": f"Updated {result['product_name']}: added {result['quantity']} kg at ₹{result['price']} per kg. Total: {updates['quantity']} kg",
+                    "product": updated,
+                    "parsed_command": result,
+                    "confidence": result.get("confidence", 1.0),
+                    "action_taken": "updated_existing"
+                }
+            else:
+                # Create new product
+                product = Product(
+                    name=result["product_name"].title(),  # Capitalize first letter
+                    quantity=result["quantity"],
+                    price_per_kg=result["price"],
+                    category="General"  # Default category
+                )
+                saved_product = await save_product(product)
+                return {
+                    "success": True,
+                    "message": f"Added {result['quantity']} kg of {result['product_name']} at ₹{result['price']} per kg",
+                    "product": saved_product,
+                    "parsed_command": result,
+                    "confidence": result.get("confidence", 1.0),
+                    "action_taken": "created_new"
+                }
         
         elif result["action"] == "list":
             products = await get_all_products()
